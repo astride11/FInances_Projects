@@ -41,7 +41,7 @@ It serves as a toolbox for **option pricing, portfolio optimization, risk manage
 
 Mallo Poundi Christel – Student at École Polytechnique | Quantitative Finance & Machine Learning Enthusiast
 
-- GitHub: [https://github.com/astrid11](https://github.com/astrid11)  
+- GitHub: [https://github.com/astride11](https://github.com/astride11)  
 - Mail: astride.mallopoundi@gmail.com  
 - LinkedIn: [https://www.linkedin.com/in/astride-mallo/](https://www.linkedin.com/in/astride-mallo/)
 
