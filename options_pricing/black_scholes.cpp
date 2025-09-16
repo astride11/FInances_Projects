@@ -21,7 +21,7 @@ inline double norm_cdf(double x) {
 }
 
 // --- Black-Scholes price european (Call / Put) ---
-double black_scholes_price(char option_type, double S, double K, double r, double sigma, double T) {
+double bs_price(char option_type, double S, double K, double r, double sigma, double T) {
     if (T <= 0.0) { // option at maturity
         if (option_type == 'c') return max(0.0, S - K);
         else return max(0.0, K - S);
@@ -108,16 +108,16 @@ double implied_vol(char option_type, double market_price, double S, double K, do
     double low = 1e-12;
     double high = 5.0; // large vol upper bound
     // sanity: if market price > price at high vol, increase high (rare)
-    double price_high = black_scholes_price(option_type, S, K, r, high, T);
+    double price_high = bs_price(option_type, S, K, r, high, T);
     while (price_high < market_price && high < 1e2) {
         high *= 2.0;
-        price_high = black_scholes_price(option_type, S, K, r, high, T);
+        price_high = bs_price(option_type, S, K, r, high, T);
     }
 
     // Newton iterations
     double sigma = max(1e-8, initial_sigma);
     for (int i = 0; i < max_iter; ++i) {
-        double price = black_scholes_price(option_type, S, K, r, sigma, T);
+        double price = bs_price(option_type, S, K, r, sigma, T);
         double diff = price - market_price;
         if (fabs(diff) < tol) return sigma;
         double vega = bs_vega(S, K, r, sigma, T);
@@ -137,8 +137,8 @@ double implied_vol(char option_type, double market_price, double S, double K, do
 
     // Fallback: bisection to ensure root in [low, high]
     double a = low, b = high;
-    double fa = black_scholes_price(option_type, S, K, r, a, T) - market_price;
-    double fb = black_scholes_price(option_type, S, K, r, b, T) - market_price;
+    double fa = bs_price(option_type, S, K, r, a, T) - market_price;
+    double fb = bs_price(option_type, S, K, r, b, T) - market_price;
     if (fa * fb > 0) {
         // No sign change: market price outside achievable range (maybe numerical)
         // Return best effort: clamp
@@ -149,7 +149,7 @@ double implied_vol(char option_type, double market_price, double S, double K, do
     double mid = 0.0;
     for (int i = 0; i < 200; ++i) {
         mid = 0.5 * (a + b);
-        double fm = black_scholes_price(option_type, S, K, r, mid, T) - market_price;
+        double fm = bs_price(option_type, S, K, r, mid, T) - market_price;
         if (fabs(fm) < tol) return mid;
         if (fa * fm <= 0) {
             b = mid;
@@ -161,4 +161,44 @@ double implied_vol(char option_type, double market_price, double S, double K, do
         if (b - a < tol) break;
     }
     return mid;
+}
+
+// --- Exemple d'utilisation ---
+int main() {
+    // Paramètres d'exemple
+    double S = 100.0;      // spot
+    double K = 100.0;      // strike
+    double r = 0.01;       // taux sans risque annuel
+    double sigma = 0.2;    // vol initiale
+    double T = 0.5;        // maturité en années (6 mois)
+
+    // Prix direct
+    double call = bs_price('c', S, K, r, sigma, T);
+    double put  = bs_price('p', S, K, r, sigma, T);
+
+    cout.setf(std::ios::fixed); cout.precision(6);
+    cout << "Prix (sigma=" << sigma << "):\n";
+    cout << " Call: " << call << "\n";
+    cout << " Put : " << put << "\n\n";
+
+    // Greeks (call)
+    cout << "Greeks (call):\n";
+    cout << " Delta: " << bs_delta('c', S, K, r, sigma, T) << "\n";
+    cout << " Gamma: " << bs_gamma(S, K, r, sigma, T) << "\n";
+    cout << " Vega : " << bs_vega(S, K, r, sigma, T) << "\n";
+    cout << " Theta: " << bs_theta('c', S, K, r, sigma, T) << "\n";
+    cout << " Rho  : " << bs_rho('c', S, K, r, sigma, T) << "\n\n";
+
+    // Implied volatility example:
+    // Suppose market call price is observed at 'call_market'
+    double call_market = call; // on reprend le prix modèle; implied vol doit retrouver sigma
+    double implied = implied_vol('c', call_market, S, K, r, T);
+    cout << "Implied vol from market call price (" << call_market << "): " << implied << "\n";
+
+    // Example: market price slightly higher
+    double call_market2 = call + 0.5;
+    double implied2 = implied_vol('c', call_market2, S, K, r, T);
+    cout << "Implied vol from market call price (" << call_market2 << "): " << implied2 << "\n";
+
+    return 0;
 }
