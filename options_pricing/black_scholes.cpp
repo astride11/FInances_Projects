@@ -5,7 +5,12 @@
 #include <cmath>
 #include <iostream>
 #include <limits>   
+#include <fstream>
+#include <sstream>
+#include <string>
+#include <vector>
 #include <algorithm>
+#include "black_scholes.h"
 using namespace std;
 
 const double PI = 3.14159265358979323846;
@@ -161,4 +166,74 @@ double implied_vol(char option_type, double market_price, double S, double K, do
         if (b - a < tol) break;
     }
     return mid;
+}
+
+
+// --- Fonction qui ajoute la colonne "implied_vol_compute" ---
+void add_implied_vol_column(const string& input_file, const string& output_file,
+                            char option_type, double S, double r, double T,
+                            double initial_sigma = 0.2) {
+    ifstream infile(input_file);
+    if (!infile.is_open()) {
+        cerr << "Impossible d’ouvrir " << input_file << endl;
+        return;
+    }
+
+    vector<string> lines;
+    string line;
+
+    // Lire tout le CSV
+    while (getline(infile, line)) {
+        lines.push_back(line);
+    }
+    infile.close();
+
+    if (lines.empty()) {
+        cerr << "Fichier vide." << endl;
+        return;
+    }
+
+    // Ajouter le header
+    lines[0] += ",implied_vol_compute";
+
+    // Parcourir les lignes et ajouter les vols
+    for (size_t i = 1; i < lines.size(); i++) {
+        stringstream ss(lines[i]);
+        string cell;
+        vector<string> cols;
+
+        // Split de la ligne
+        while (getline(ss, cell, ',')) {
+            cols.push_back(cell);
+        }
+
+        if (cols.size() < 2) {
+            cerr << "Ligne ignorée : " << lines[i] << endl;
+            continue;
+        }
+
+        // Lecture Strike et Price 
+        double K = stod(cols[3]);
+        double price = stod(cols[4]);
+
+        // Calcul de la vol implicite
+        double vol = implied_vol(option_type, price, S, K, r, T, initial_sigma);
+
+        // Ajouter la valeur à la ligne
+        lines[i] += "," + to_string(vol);
+    }
+
+    // Réécrire dans le nouveau fichier
+    ofstream outfile(output_file);
+    if (!outfile.is_open()) {
+        cerr << "mpossible d’écrire dans " << output_file << endl;
+        return;
+    }
+
+    for (auto &l : lines) {
+        outfile << l << "\n";
+    }
+    outfile.close();
+
+    cout << "Colonne ajoutée et fichier généré : " << output_file << endl;
 }
